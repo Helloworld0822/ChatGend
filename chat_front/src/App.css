@@ -1,1 +1,162 @@
-@import "tailwindcss";
+:root {
+  /* Material 3 inspired color tokens (light scheme) */
+  --md-sys-color-primary: #6750A4;
+  --md-sys-color-on-primary: #FFFFFF;
+  --md-sys-color-primary-container: #EADDFF;
+  --md-sys-color-on-primary-container: #21005D;
+
+  --md-sys-color-secondary: #625B71;
+  --md-sys-color-on-secondary: #FFFFFF;
+
+  --md-sys-color-background: #FFFBFE;
+  --md-sys-color-surface: #FFFFFF;
+  --md-sys-color-surface-variant: #E7DEE9;
+  --md-sys-color-outline: #79747E;
+
+  --md-sys-elevation-1: 0 1px 2px rgba(16,24,40,0.06), 0 1px 3px rgba(16,24,40,0.08);
+  --md-sys-radius: 12px;
+
+  --sidebar-width: 30%;
+  --gap: 1rem;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  background: var(--md-sys-color-background);
+  color: #1f2937;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  gap: var(--gap);
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: 220px;
+  background: var(--md-sys-color-surface);
+  border-right: 1px solid var(--md-sys-color-surface-variant);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--md-sys-elevation-1);
+}
+
+.sidebar-header {
+  padding: 16px;
+  font-weight: 600;
+  color: var(--md-sys-color-primary);
+  border-bottom: 1px solid transparent;
+}
+
+.chat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+.chat-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(16,24,40,0.03);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.chat-item:hover { background: rgba(103,80,164,0.04); }
+.chat-item.active {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+.chat-name { font-weight: 700; font-size: 14px; }
+.chat-last { font-size: 12px; color: var(--md-sys-color-outline); }
+
+/* Footer with fixed add chat button */
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid transparent;
+  background: linear-gradient(180deg, rgba(255,255,255,0.0), rgba(255,255,255,0.02));
+}
+
+.add-chat {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(180deg, var(--md-sys-color-primary), #5b3f95);
+  color: var(--md-sys-color-on-primary);
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.05), 0 2px 8px rgba(103,80,164,0.12);
+  font-weight: 600;
+}
+.add-chat:hover { filter: brightness(0.98); }
+
+/* CHAT AREA */
+.chat-area {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg,var(--md-sys-color-surface),var(--md-sys-color-background));
+}
+
+.chat-header {
+  padding: 16px;
+  border-bottom: 1px solid rgba(16,24,40,0.04);
+  font-weight: 700;
+  color: var(--md-sys-color-on-primary-container);
+  background: var(--md-sys-color-primary-container);
+}
+
+.messages {
+  padding: 20px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.message { max-width: 70%; padding: 10px 14px; border-radius: 12px; box-shadow: none; }
+.message.incoming { align-self: flex-start; background: var(--md-sys-color-surface-variant); color: #1f2937; }
+.message.outgoing { align-self: flex-end; background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.message-from { font-size: 12px; color: #374151; margin-bottom: 6px; font-weight: 600; }
+.message-text { font-size: 14px; }
+
+.composer {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid rgba(16,24,40,0.04);
+  align-items: center;
+  background: var(--md-sys-color-surface);
+}
+.composer-input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(16,24,40,0.06);
+  background: rgba(255,255,255,0.98);
+  transform: 0.2s;
+}
+.composer-input:focus { outline: 2px solid rgba(103,80,164,0.14); }
+.composer-send {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  cursor: pointer;
+  font-weight: 600;
+}
+.composer-send:hover { filter: brightness(0.98); }
+
+/* responsive */
+@media (max-width: 720px) {
+  .sidebar { display: none; }
+  .app-container { gap: 0; }
+}

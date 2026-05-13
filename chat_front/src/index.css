@@ -1,3 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* global index styles */
+:root { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: inherit; }
+html, body, #root { height: 100%; }
+body { margin: 0; }

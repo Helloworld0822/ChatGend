@@ -8,15 +8,34 @@ import '@material/web/checkbox/checkbox.js';
 type ChatSummary = { id: number; name: string; last: string }
 
 const initialChats: ChatSummary[] = [
-  { id: 1, name: 'General', last: 'Hey — how are you?' },
-  { id: 2, name: 'Project X', last: 'Design updated' },
-  { id: 3, name: 'Random', last: 'Funny meme' },
+
+]
+
+import { useState, useEffect } from 'react'
+import './App.css'
+import './index.css'
+import '@material/web/button/filled-button.js';
+import '@material/web/button/outlined-button.js';
+import '@material/web/checkbox/checkbox.js';
+import { authFetch } from './auth'
+
+type ChatSummary = { id: number; name: string; last: string }
+
+const initialChats: ChatSummary[] = [
+
 ]
 
 export default function App() {
   const [chats, setChats] = useState<ChatSummary[]>(initialChats)
   const [selected, setSelected] = useState<number>(1)
   const [input, setInput] = useState('')
+  const [me, setMe] = useState<string | null>(null)
+
+  useEffect(() => {
+    authFetch('/auth/whoami').then(r => r.json()).then((data) => {
+      setMe(data?.user?.display_name ?? data?.user?.token ?? null)
+    }).catch(() => {})
+  }, [])
 
   const currentChat = chats.find((c) => c.id === selected) ?? chats[0]
   const messages = [
@@ -41,6 +60,7 @@ export default function App() {
     <div className="app-container">
       <aside className="sidebar">
         <div className="sidebar-header">Chats</div>
+        <div style={{ padding: '8px', fontSize: '12px', color: '#666' }}>Me: {me ?? 'unknown'}</div>
         <ul className="chat-list">
           {chats.map((c) => (
             <li

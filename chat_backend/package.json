@@ -8,7 +8,9 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.14",
-    "hono": "^4.12.16"
+    "hono": "^4.12.16",
+    "postgresql": "^0.0.1",
+    "sqlite": "^5.1.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",

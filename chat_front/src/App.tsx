@@ -5,12 +5,6 @@ import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
 import '@material/web/checkbox/checkbox.js';
 
-type ChatSummary = { id: number; name: string; last: string }
-
-const initialChats: ChatSummary[] = [
-
-]
-
 import { useState, useEffect } from 'react'
 import './App.css'
 import './index.css'
@@ -21,8 +15,14 @@ import { authFetch } from './auth'
 
 type ChatSummary = { id: number; name: string; last: string }
 
-const initialChats: ChatSummary[] = [
+const initialChats: ChatSummary[] = []
 
+const LANG_KEY = 'preferred_language'
+const AVAILABLE_LANGS = [
+  { code: 'en', label: 'English' },
+  { code: 'ko', label: '한국어' },
+  { code: 'ja', label: '日本語' },
+  { code: 'es', label: 'Español' },
 ]
 
 export default function App() {
@@ -30,6 +30,8 @@ export default function App() {
   const [selected, setSelected] = useState<number>(1)
   const [input, setInput] = useState('')
   const [me, setMe] = useState<string | null>(null)
+  const [preferredLang, setPreferredLang] = useState<string>(localStorage.getItem(LANG_KEY) || 'en')
+  const [translated, setTranslated] = useState<Record<number, string>>({})
 
   useEffect(() => {
     authFetch('/auth/whoami').then(r => r.json()).then((data) => {
@@ -44,6 +46,30 @@ export default function App() {
     { id: 3, from: 'Alice', text: 'Looks good.' },
   ]
 
+  useEffect(() => {
+    // Translate visible messages whenever preferredLang changes
+    async function doTranslate() {
+      const texts = messages.map((m) => m.text)
+      try {
+        const resp = await fetch('/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ texts, target: preferredLang })
+        })
+        const json = await resp.json()
+        if (json?.translations && Array.isArray(json.translations)) {
+          const map: Record<number, string> = {}
+          messages.forEach((m, i) => { map[m.id] = json.translations[i] })
+          setTranslated(map)
+        }
+      } catch (e) {
+        console.error('translation error', e)
+      }
+    }
+
+    if (preferredLang) doTranslate()
+  }, [preferredLang])
+
   function send() {
     if (!input.trim()) return
     setInput('')
@@ -56,11 +82,24 @@ export default function App() {
     setSelected(nextId)
   }
 
+  function changeLang(code: string) {
+    setPreferredLang(code)
+    localStorage.setItem(LANG_KEY, code)
+  }
+
   return (
     <div className="app-container">
       <aside className="sidebar">
         <div className="sidebar-header">Chats</div>
         <div style={{ padding: '8px', fontSize: '12px', color: '#666' }}>Me: {me ?? 'unknown'}</div>
+
+        <div style={{ padding: '8px' }}>
+          <label style={{ fontSize: '12px' }}>Language:</label>
+          <select value={preferredLang} onChange={(e) => changeLang((e.target as HTMLSelectElement).value)} style={{ marginLeft: 8 }}>
+            {AVAILABLE_LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+          </select>
+        </div>
+
         <ul className="chat-list">
           {chats.map((c) => (
             <li
@@ -86,7 +125,7 @@ export default function App() {
           {messages.map((m) => (
             <div key={m.id} className={"message " + (m.from === 'You' ? 'outgoing' : 'incoming')}>
               <div className="message-from">{m.from}</div>
-              <div className="message-text">{m.text}</div>
+              <div className="message-text">{translated[m.id] ?? m.text}</div>
             </div>
           ))}
         </div>

@@ -1,6 +1,5 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import cors from 'cors'
 
 import { registerToken, findUserByToken } from './auth'
 
@@ -110,6 +109,35 @@ app.delete('/rooms/:id/messages/:messageId', async (c) => {
 
   await Chat.deleteMessage(messageId)
   return c.json({ ok: true })
+})
+
+// Translate endpoint using Google Translate API key from env
+app.post('/translate', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const texts = body?.texts
+  const target = body?.target
+  if (!texts || !Array.isArray(texts) || !target) return c.json({ error: 'texts (string[]) and target (string) required' }, 400)
+
+  const key = process.env.GOOGLE_TRANSLATE_API_KEY
+  if (!key) return c.json({ error: 'GOOGLE_TRANSLATE_API_KEY not set in environment' }, 500)
+
+  try {
+    const resp = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: texts, target })
+    })
+
+    const json = await resp.json()
+    if (!resp.ok) {
+      return c.json({ error: 'translation failed', detail: json }, 500)
+    }
+
+    const translations = (json?.data?.translations || []).map((t: any) => t.translatedText)
+    return c.json({ translations })
+  } catch (err: any) {
+    return c.json({ error: 'translation error', detail: String(err) }, 500)
+  }
 })
 
 serve({

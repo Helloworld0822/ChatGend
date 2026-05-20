@@ -9,6 +9,7 @@
   "dependencies": {
     "@hono/node-server": "^1.19.14",
     "hono": "^4.12.16",
+    "openai": "^6.38.0",
     "postgresql": "^0.0.1",
     "sqlite": "^5.1.1"
   },

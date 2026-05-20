@@ -14,5 +14,6 @@ CREATE TABLE IF NOT EXISTS chat (
 
 CREATE TABLE If NOT EXISTS user (
     name TEXT NOT NULL,
-    token TEXT PRIMARY KEY
+    token TEXT PRIMARY KEY,
+    language TEXT NOT NULL,
 );

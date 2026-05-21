@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 
-import { registerToken, findUserByToken } from './auth'
+import { registerToken, findUserByToken } from './auth.js'
 
 const app = new Hono()
 
@@ -9,7 +9,7 @@ app.use('*', async (c, next) => {
   c.header('Access-Control-Allow-Origin', '*')
   c.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
   c.header('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-  if (c.req.method === 'OPTIONS') return c.text('', 204)
+  if (c.req.method === 'OPTIONS') return c.text('', 204 as any)
   await next()
 })
 
@@ -36,14 +36,15 @@ app.get('/auth/whoami', async (c) => {
 })
 
 // Rooms and messages
-import * as Chat from './chat'
+import * as Chat from './chat.js'
+import * as AI from './ai.js'
 
 // Create room (records creator_token if provided via Authorization header)
 app.post('/rooms', async (c) => {
   const body = await c.req.json()
   const name = body?.name ?? 'Untitled Room'
   const token = c.req.header('Authorization')?.replace('Bearer ', '')
-  const room = await Chat.createRoom(name, body?.invite_hash, token ?? null)
+  const room = await Chat.createRoom(name, body?.invite_hash, token ?? undefined)
   return c.json({ room })
 })
 
@@ -69,6 +70,50 @@ app.get('/rooms/:id/messages', async (c) => {
   const limit = Number(c.req.query('limit') ?? 100)
   const msgs = await Chat.listMessages(id, limit)
   return c.json({ messages: msgs })
+})
+
+// Summarize conversation in a room
+app.get('/rooms/:id/summary', async (c) => {
+  const id = Number(c.req.param('id'))
+  const limit = Number(c.req.query('limit') ?? 200)
+  const raw = await Chat.listMessages(id, limit)
+  const messages = raw.map((r: any) => ({ role: r.user_name === 'system' ? 'system' : 'user', content: r.message, timestamp: r.created_at }))
+  try {
+    const summary = await AI.summarizeConversation(messages)
+    return c.json({ summary })
+  } catch (err: any) {
+    return c.json({ error: 'ai error', detail: String(err) }, 500)
+  }
+})
+
+// Recommend reply strategies for the current conversation
+app.get('/rooms/:id/recommendations', async (c) => {
+  const id = Number(c.req.param('id'))
+  const limit = Number(c.req.query('limit') ?? 200)
+  const num = Number(c.req.query('n') ?? 3)
+  const raw = await Chat.listMessages(id, limit)
+  const messages = raw.map((r: any) => ({ role: r.user_name === 'system' ? 'system' : 'user', content: r.message, timestamp: r.created_at }))
+  try {
+    const recs = await AI.recommendResponses(messages, { numSuggestions: num })
+    return c.json({ recommendations: recs })
+  } catch (err: any) {
+    return c.json({ error: 'ai error', detail: String(err) }, 500)
+  }
+})
+
+// Generate single reply suggestion
+app.get('/rooms/:id/suggest-reply', async (c) => {
+  const id = Number(c.req.param('id'))
+  const limit = Number(c.req.query('limit') ?? 200)
+  const tone = c.req.query('tone') ?? 'concise and friendly'
+  const raw = await Chat.listMessages(id, limit)
+  const messages = raw.map((r: any) => ({ role: r.user_name === 'system' ? 'system' : 'user', content: r.message, timestamp: r.created_at }))
+  try {
+    const suggestion = await AI.generateReplySuggestion(messages as any[], String(tone))
+    return c.json({ suggestion })
+  } catch (err: any) {
+    return c.json({ error: 'ai error', detail: String(err) }, 500)
+  }
 })
 
 // Send message

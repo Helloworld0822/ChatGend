@@ -1,4 +1,4 @@
-import { query } from './db'
+import { query } from './db.js'
 
 export const registerToken = async (token: string, displayName?: string) => {
   const text = `INSERT INTO users(token, display_name) VALUES($1, $2) ON CONFLICT (token) DO NOTHING`;

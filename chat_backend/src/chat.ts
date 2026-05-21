@@ -1,4 +1,4 @@
-import { query } from './db'
+import { query } from './db.js'
 
 export async function createRoom(name: string, inviteHash?: string, creatorToken?: string) {
   const res = await query('INSERT INTO chat_room(name, invite_hash, creator_token) VALUES($1, $2, $3) RETURNING id, name, invite_hash, creator_token', [name, inviteHash ?? null, creatorToken ?? null])

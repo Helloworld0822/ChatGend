@@ -1,4 +1,4 @@
-import { Pool } from 'postgresql';
+import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
 
@@ -7,6 +7,8 @@ const connectionString = process.env.DATABASE_URL || process.env.PG_CONNECTION_S
 if (!connectionString) {
   console.warn('WARNING: No DATABASE_URL or PG_CONNECTION_STRING found in environment; set DATABASE_URL to connect to PostgreSQL.');
 }
+
+const { Pool } = pg;
 
 export const pool = new Pool({
   connectionString,

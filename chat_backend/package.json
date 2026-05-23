@@ -11,6 +11,7 @@
     "hono": "^4.12.16",
     "openai": "^6.38.0",
     "postgresql": "^0.0.1",
+    "pg": "^8.10.0",
     "sqlite": "^5.1.1"
   },
   "devDependencies": {

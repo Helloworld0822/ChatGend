@@ -1,19 +1,34 @@
+-- PostgreSQL-compatible schema for this project
+
 CREATE TABLE IF NOT EXISTS chat_room (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    invite_hash TEXT PRIMARY KEY,
-    key room_id_index(id)
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name TEXT NOT NULL,
+  invite_hash TEXT,
+  creator_token TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS chat_room_invite_hash_idx ON chat_room(invite_hash);
+
+CREATE TABLE IF NOT EXISTS users (
+  token TEXT PRIMARY KEY,
+  display_name TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS chat (
-    room_id INTEGER NOT NULL,
-    user_name TEXT NOT NULL,
-    message TEXT NOT NULL,
-    user_list TEXT[],
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  room_id BIGINT NOT NULL REFERENCES chat_room(id) ON DELETE CASCADE,
+  user_name TEXT NOT NULL,
+  author_token TEXT,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE If NOT EXISTS user (
+CREATE INDEX IF NOT EXISTS chat_room_id_idx ON chat(room_id);
+
+CREATE TABLE IF NOT EXISTS user (
     name TEXT NOT NULL,
     token TEXT PRIMARY KEY,
-    language TEXT NOT NULL,
+    language TEXT NOT NULL
 );

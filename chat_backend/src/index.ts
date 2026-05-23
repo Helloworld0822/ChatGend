@@ -1,6 +1,5 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-
 import { registerToken, findUserByToken } from './auth.js'
 
 const app = new Hono()
@@ -191,4 +190,3 @@ serve({
 }, (info) => {
   console.log(`Server is running on http://localhost:${info.port}`)
 })
-

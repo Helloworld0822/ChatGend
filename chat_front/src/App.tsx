@@ -1,17 +1,10 @@
-import { useState } from 'react'
-import './App.css'
-import './index.css'
-import '@material/web/button/filled-button.js';
-import '@material/web/button/outlined-button.js';
-import '@material/web/checkbox/checkbox.js';
-
 import { useState, useEffect } from 'react'
 import './App.css'
 import './index.css'
 import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
 import '@material/web/checkbox/checkbox.js';
-import { authFetch } from './auth'
+import { authFetch, getToken } from './auth'
 
 type ChatSummary = { id: number; name: string; last: string }
 
@@ -33,6 +26,12 @@ export default function App() {
   const [preferredLang, setPreferredLang] = useState<string>(localStorage.getItem(LANG_KEY) || 'en')
   const [translated, setTranslated] = useState<Record<number, string>>({})
 
+  // Registration modal state
+  const [showRegister, setShowRegister] = useState<boolean>(() => !getToken())
+  const [regName, setRegName] = useState<string>('')
+  const [regLang, setRegLang] = useState<string>(preferredLang)
+  const [regToken, setRegToken] = useState<string>('')
+
   useEffect(() => {
     authFetch('/auth/whoami').then(r => r.json()).then((data) => {
       setMe(data?.user?.display_name ?? data?.user?.token ?? null)
@@ -51,7 +50,7 @@ export default function App() {
     async function doTranslate() {
       const texts = messages.map((m) => m.text)
       try {
-        const resp = await fetch('/translate', {
+        const resp = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ texts, target: preferredLang })
@@ -87,8 +86,68 @@ export default function App() {
     localStorage.setItem(LANG_KEY, code)
   }
 
+  function generateToken() {
+    return 'tok_' + Math.random().toString(36).slice(2, 10)
+  }
+
+  async function handleRegister(e?: Event) {
+    if (e && (e as any).preventDefault) (e as any).preventDefault()
+    const tokenToUse = regToken || generateToken()
+
+    try {
+      await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: tokenToUse, displayName: regName || tokenToUse })
+      })
+
+      // persist token and preferred language
+      localStorage.setItem('persistent_user_token', tokenToUse)
+      localStorage.setItem(LANG_KEY, regLang)
+      setRegToken(tokenToUse)
+      setPreferredLang(regLang)
+      setShowRegister(false)
+      // try to fetch whoami
+      const resp = await fetch('/api/auth/whoami', { headers: { Authorization: `Bearer ${tokenToUse}` } })
+      const json = await resp.json()
+      setMe(json?.user?.display_name ?? tokenToUse)
+    } catch (err) {
+      console.error('register failed', err)
+      alert('Registration failed: ' + err)
+    }
+  }
+
   return (
-    <div className="app-container">
+    <>
+      {showRegister && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Welcome — register your name</h3>
+            <form onSubmit={(e) => { e.preventDefault(); handleRegister() }}>
+              <div style={{ marginBottom: 8 }}>
+                <label>Name: </label>
+                <input value={regName} onChange={(e) => setRegName((e.target as HTMLInputElement).value)} />
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <label>Language: </label>
+                <select value={regLang} onChange={(e) => setRegLang((e.target as HTMLSelectElement).value)}>
+                  {AVAILABLE_LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <label>Token (optional): </label>
+                <input placeholder="auto-generate if empty" value={regToken} onChange={(e) => setRegToken((e.target as HTMLInputElement).value)} />
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="submit">Register</button>
+                <button type="button" onClick={() => { const t = generateToken(); setRegToken(t); setRegName(''); setRegLang(preferredLang) }}>Generate Token</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <div className="app-container">
       <aside className="sidebar">
         <div className="sidebar-header">Chats</div>
         <div style={{ padding: '8px', fontSize: '12px', color: '#666' }}>Me: {me ?? 'unknown'}</div>
@@ -142,5 +201,6 @@ export default function App() {
         </div>
       </main>
     </div>
+    </>
   )
 }

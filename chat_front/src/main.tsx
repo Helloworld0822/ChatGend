@@ -14,14 +14,14 @@ function ensureToken() {
     )
     localStorage.setItem(key, token)
     // Register with backend (best-effort)
-    fetch('/auth/register', {
+    fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token })
     }).catch(() => {})
   } else {
     // Optionally re-register to ensure record exists
-    fetch('/auth/register', {
+    fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token })

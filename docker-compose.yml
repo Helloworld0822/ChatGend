@@ -18,6 +18,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - backend_net
 
   backend:
     build:
@@ -36,6 +38,9 @@ services:
       - "3001:3000"
     depends_on:
       - db
+    networks:
+      - backend_net
+      - frontend_net
 
   frontend:
     build:
@@ -53,6 +58,8 @@ services:
       NODE_ENV: development
     depends_on:
       - backend
+    networks:
+      - frontend_net
 
   nginx:
     image: nginx:stable-alpine
@@ -64,6 +71,8 @@ services:
     depends_on:
       - frontend
       - backend
+    networks:
+      - frontend_net
 
 volumes:
   db-data:
@@ -71,3 +80,5 @@ volumes:
 networks:
   default:
     name: transcript_chat_network
+  backend_net:
+  frontend_net:

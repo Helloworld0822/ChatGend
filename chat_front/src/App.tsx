@@ -9,8 +9,6 @@ import '@material/web/textfield/outlined-text-field.js'
 import '@material/web/list/list.js'
 import '@material/web/list/list-item.js'
 import '@material/web/icon/icon.js'
-import '@material/web/navigationbar/navigation-bar.js'
-import '@material/web/navigationdrawer/navigation-drawer.js'
 import '@material/web/dialog/dialog.js'
 
 type ChatSummary = { id: number; name: string; last: string }

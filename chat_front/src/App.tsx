@@ -476,8 +476,8 @@ export default function App() {
     }
   }
 
-  async function handleCreateRoom(e: FormEvent) {
-    e.preventDefault()
+  async function handleCreateRoom(e?: FormEvent | Event) {
+    if (e && 'preventDefault' in e) e.preventDefault()
     if (!roomName.trim()) return
 
     try {
@@ -504,8 +504,8 @@ export default function App() {
     }
   }
 
-  async function handleRenameRoom(e: FormEvent) {
-    e.preventDefault()
+  async function handleRenameRoom(e?: FormEvent | Event) {
+    if (e && 'preventDefault' in e) e.preventDefault()
     if (!editRoomName.trim() || selectedRoomId == null) return
 
     try {
@@ -527,6 +527,15 @@ export default function App() {
   async function handleDeleteRoom() {
     if (selectedRoomId == null) return
     if (!confirm('Delete this room?')) return
+
+    systemSeqRef.current += 1
+    const id = `sys-${systemSeqRef.current}`
+    setSystemEvents((prev) => [
+      ...prev,
+      { id, kind: 'leave' as const, userName: me ?? 'unknown', at: new Date().toISOString() },
+    ])
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
     try {
       const resp = await authFetch(`/api/rooms/${selectedRoomId}`, { method: 'DELETE' })

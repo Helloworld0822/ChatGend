@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { registerToken, findUserByToken } from './auth.js'
+import { attachChatWebSocket } from './live-chat.js'
 
 const app = new Hono()
 
@@ -37,6 +38,21 @@ app.get('/auth/whoami', async (c) => {
 // Rooms and messages
 import * as Chat from './chat.js'
 import * as AI from './ai.js'
+
+// List all rooms
+app.get('/rooms', async (c) => {
+  const limit = Number(c.req.query('limit') ?? 50)
+  const rooms = await Chat.listRooms(limit)
+  return c.json({ rooms })
+})
+
+// Find room by invite hash
+app.get('/rooms/by-invite/:hash', async (c) => {
+  const hash = c.req.param('hash')
+  const room = await Chat.getRoomByInviteHash(hash)
+  if (!room) return c.json({ error: 'not found' }, 404)
+  return c.json({ room })
+})
 
 // Create room (records creator_token if provided via Authorization header)
 app.post('/rooms', async (c) => {
@@ -155,6 +171,34 @@ app.delete('/rooms/:id/messages/:messageId', async (c) => {
   return c.json({ ok: true })
 })
 
+// Rename room (only room creator can rename)
+app.patch('/rooms/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json()
+  const name = body?.name
+  if (!name) return c.json({ error: 'name required' }, 400)
+  const room = await Chat.updateRoom(id, name)
+  if (!room) return c.json({ error: 'not found' }, 404)
+  return c.json({ room })
+})
+
+// Delete room (only room creator can delete)
+app.delete('/rooms/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  const token = c.req.header('Authorization')?.replace('Bearer ', '') ?? null
+  if (!token) return c.json({ error: 'unauthenticated' }, 401)
+
+  const room = await Chat.getRoomById(id)
+  if (!room) return c.json({ error: 'not found' }, 404)
+
+  if (room.creator_token && room.creator_token !== token) {
+    return c.json({ error: 'forbidden' }, 403)
+  }
+
+  await Chat.deleteRoom(id)
+  return c.json({ ok: true })
+})
+
 // Translate endpoint using Google Translate API key from env
 import { translateTexts } from './transcript.js'
 
@@ -176,9 +220,37 @@ app.post('/translate', async (c) => {
   }
 })
 
-serve({
+function logError(context: string, error: unknown) {
+  const message = error instanceof Error ? error.stack ?? error.message : String(error)
+  console.error(`[backend] ${context}:`, message)
+}
+
+const server = serve({
   fetch: app.fetch,
   port: 3000
 }, (info) => {
   console.log(`Server is running on http://localhost:${info.port}`)
+  console.log(`[backend] Google Translate API key loaded: ${Boolean(process.env.GOOGLE_TRANSLATE_API_KEY || process.env.GOOGLE_API_KEY)}`)
+})
+
+attachChatWebSocket(server)
+
+let shuttingDown = false
+
+async function gracefulShutdown(signal: string) {
+  if (shuttingDown) return
+  shuttingDown = true
+  console.log(`[backend] received ${signal}, shutting down gracefully`)
+  server.close()
+  console.log('[backend] shutdown complete')
+  process.exit(0)
+}
+
+process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => void gracefulShutdown('SIGINT'))
+process.on('unhandledRejection', (reason) => {
+  logError('unhandled rejection', reason)
+})
+process.on('uncaughtException', (err) => {
+  logError('uncaught exception', err)
 })

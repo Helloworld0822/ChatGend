@@ -10,12 +10,14 @@
     "@hono/node-server": "^1.19.14",
     "hono": "^4.12.16",
     "openai": "^6.38.0",
-    "postgresql": "^0.0.1",
     "pg": "^8.10.0",
-    "sqlite": "^5.1.1"
+    "postgresql": "^0.0.1",
+    "sqlite": "^5.1.1",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3"
   }

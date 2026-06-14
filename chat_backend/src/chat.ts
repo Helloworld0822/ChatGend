@@ -151,3 +151,48 @@ export async function deleteMessage(messageId: number): Promise<{ ok: true }> {
   await query('DELETE FROM chat WHERE id = $1', [messageId])
   return { ok: true }
 }
+
+export async function addMember(roomId: number, userToken: string): Promise<void> {
+  await query(
+    'INSERT INTO room_members(room_id, user_token) VALUES($1, $2) ON CONFLICT DO NOTHING',
+    [roomId, userToken],
+  )
+}
+
+export async function isMember(roomId: number, userToken: string): Promise<boolean> {
+  const res = await query(
+    'SELECT 1 FROM room_members WHERE room_id = $1 AND user_token = $2',
+    [roomId, userToken],
+  )
+  return (res.rowCount ?? 0) > 0
+}
+
+export async function listUserRooms(userToken: string, limit = 50): Promise<ChatRoomSummary[]> {
+  const res = await query(
+    `SELECT
+      r.id,
+      r.name,
+      r.invite_hash,
+      r.created_at,
+      COALESCE(m.message, '') AS last_message,
+      COALESCE(cnt.message_count, 0)::int AS message_count
+    FROM chat_room r
+    INNER JOIN room_members rm ON rm.room_id = r.id AND rm.user_token = $1
+    LEFT JOIN LATERAL (
+      SELECT message
+      FROM chat c
+      WHERE c.room_id = r.id
+      ORDER BY c.id DESC
+      LIMIT 1
+    ) m ON true
+    LEFT JOIN LATERAL (
+      SELECT count(*)::int AS message_count
+      FROM chat c
+      WHERE c.room_id = r.id
+    ) cnt ON true
+    ORDER BY r.id DESC
+    LIMIT $2`,
+    [userToken, limit],
+  )
+  return (res.rows ?? []) as ChatRoomSummary[]
+}

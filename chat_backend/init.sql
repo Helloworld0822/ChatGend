@@ -27,6 +27,15 @@ CREATE TABLE IF NOT EXISTS chat (
 
 CREATE INDEX IF NOT EXISTS chat_room_id_idx ON chat(room_id);
 
+CREATE TABLE IF NOT EXISTS room_members (
+  room_id BIGINT NOT NULL REFERENCES chat_room(id) ON DELETE CASCADE,
+  user_token TEXT NOT NULL,
+  joined_at TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (room_id, user_token)
+);
+
+CREATE INDEX IF NOT EXISTS room_members_user_idx ON room_members(user_token);
+
 CREATE TABLE IF NOT EXISTS user (
     name TEXT NOT NULL,
     token TEXT PRIMARY KEY,

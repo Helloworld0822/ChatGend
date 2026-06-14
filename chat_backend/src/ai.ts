@@ -17,10 +17,7 @@ if (!apiKey) {
 function getClient() {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY environment variable is required");
-  return new OpenAI({ 
-    apiKey: key,
-    baseURL: "https://panel.tapie.kr/api/ai-api/v1"
- });
+  return new OpenAI({ apiKey: key });
 }
 
 export async function summarizeConversation(messages: Message[], maxTokens = 300): Promise<string> {
@@ -50,14 +47,23 @@ export async function summarizeConversation(messages: Message[], maxTokens = 300
 export type RecommendOptions = {
   numSuggestions?: number;
   styleHints?: string; // e.g. "formal, concise"
+  language?: string; // e.g. "ko", "ja", "en"
+};
+
+const LANGUAGE_MAP: Record<string, string> = {
+  en: "English",
+  ko: "Korean (한국어)",
+  ja: "Japanese (日本語)",
+  es: "Spanish (Español)",
 };
 
 export async function recommendResponses(messages: Message[], options: RecommendOptions = {}): Promise<string[]> {
-  const { numSuggestions = 3, styleHints = "concise and helpful" } = options;
+  const { numSuggestions = 3, styleHints = "concise and helpful", language = "en" } = options;
   if (!messages || messages.length === 0) return [];
   const client = getClient();
 
-  const systemPrompt = `You are an assistant that recommends how to reply in an ongoing conversation. Given the conversation history, produce ${numSuggestions} distinct reply strategies and for each a 1-2 sentence example reply. Each strategy should include: (1) a short heading (tone/goal), (2) one-sentence rationale referencing the conversation, (3) an example reply. Keep answers ${styleHints}. Output as clear numbered items.`;
+  const langName = LANGUAGE_MAP[language] ?? language;
+  const systemPrompt = `You are an assistant that recommends how to reply in an ongoing conversation. Given the conversation history, produce ${numSuggestions} distinct reply strategies and for each a 1-2 sentence example reply. Each strategy should include: (1) a short heading (tone/goal), (2) one-sentence rationale referencing the conversation, (3) an example reply wrapped in double quotes like "example reply here". Keep answers ${styleHints}. IMPORTANT: You MUST respond in ${langName}. All headings, rationale, and example replies must be written in ${langName}. Output as clear numbered items.`;
 
   const chatMessages = [
     { role: "system", content: systemPrompt },

@@ -1,4 +1,5 @@
 const TOKEN_KEY = 'persistent_user_token'
+const NAME_KEY = 'persistent_user_name'
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
@@ -6,6 +7,18 @@ export function getToken(): string | null {
 
 export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function getDisplayName(): string | null {
+  return localStorage.getItem(NAME_KEY)
+}
+
+export function setDisplayName(name: string): void {
+  localStorage.setItem(NAME_KEY, name)
+}
+
+export function clearDisplayName(): void {
+  localStorage.removeItem(NAME_KEY)
 }
 
 export function generateToken(): string {
@@ -20,7 +33,6 @@ export async function ensureToken(): Promise<string> {
     setToken(token)
   }
   
-  // Register with backend (best-effort, only once per session)
   try {
     await fetch('/api/auth/register', {
       method: 'POST',

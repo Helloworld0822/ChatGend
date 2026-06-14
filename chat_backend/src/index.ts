@@ -40,10 +40,11 @@ app.get('/auth/whoami', async (c) => {
 import * as Chat from './chat.js'
 import * as AI from './ai.js'
 
-// List all rooms
 app.get('/rooms', async (c) => {
   const limit = Number(c.req.query('limit') ?? 50)
-  const rooms = await Chat.listRooms(limit)
+  const token = c.req.header('Authorization')?.replace('Bearer ', '') ?? null
+  if (!token) return c.json({ rooms: [] })
+  const rooms = await Chat.listUserRooms(token, limit)
   return c.json({ rooms })
 })
 
@@ -61,22 +62,27 @@ app.post('/rooms', async (c) => {
   const name = body?.name ?? 'Untitled Room'
   const token = c.req.header('Authorization')?.replace('Bearer ', '')
   const room = await Chat.createRoom(name, body?.invite_hash, token ?? undefined)
+  if (token) await Chat.addMember(room.id, token)
   return c.json({ room })
 })
 
 // Join room (return room info). If body.invite_hash is provided, allow joining by invite hash.
 app.post('/rooms/:id/join', async (c) => {
   const body = await c.req.json().catch(() => ({}))
+  const token = c.req.header('Authorization')?.replace('Bearer ', '') ?? null
   const inviteHash = body?.invite_hash
+
   if (inviteHash) {
     const room = await Chat.getRoomByInviteHash(inviteHash)
     if (!room) return c.json({ error: 'invite not found' }, 404)
+    if (token) await Chat.addMember(room.id, token)
     return c.json({ room })
   }
 
   const id = Number(c.req.param('id'))
   const room = await Chat.getRoomById(id)
   if (!room) return c.json({ error: 'not found' }, 404)
+  if (token) await Chat.addMember(room.id, token)
   return c.json({ room })
 })
 
@@ -84,6 +90,10 @@ app.post('/rooms/:id/join', async (c) => {
 app.get('/rooms/:id/messages', async (c) => {
   const id = Number(c.req.param('id'))
   const limit = Number(c.req.query('limit') ?? 100)
+  const token = c.req.header('Authorization')?.replace('Bearer ', '') ?? null
+  if (!token) return c.json({ error: 'unauthenticated' }, 401)
+  const member = await Chat.isMember(id, token)
+  if (!member) return c.json({ error: 'forbidden' }, 403)
   const msgs = await Chat.listMessages(id, limit)
   return c.json({ messages: msgs })
 })
@@ -92,6 +102,10 @@ app.get('/rooms/:id/messages', async (c) => {
 app.get('/rooms/:id/summary', async (c) => {
   const id = Number(c.req.param('id'))
   const limit = Number(c.req.query('limit') ?? 200)
+  const token = c.req.header('Authorization')?.replace('Bearer ', '') ?? null
+  if (!token) return c.json({ error: 'unauthenticated' }, 401)
+  const member = await Chat.isMember(id, token)
+  if (!member) return c.json({ error: 'forbidden' }, 403)
   const raw = await Chat.listMessages(id, limit)
   const messages = raw.map((r: any) => ({ role: r.user_name === 'system' ? 'system' : 'user', content: r.message, timestamp: r.created_at }))
   try {
@@ -107,10 +121,15 @@ app.get('/rooms/:id/recommendations', async (c) => {
   const id = Number(c.req.param('id'))
   const limit = Number(c.req.query('limit') ?? 200)
   const num = Number(c.req.query('n') ?? 3)
+  const language = c.req.query('lang') ?? 'en'
+  const token = c.req.header('Authorization')?.replace('Bearer ', '') ?? null
+  if (!token) return c.json({ error: 'unauthenticated' }, 401)
+  const member = await Chat.isMember(id, token)
+  if (!member) return c.json({ error: 'forbidden' }, 403)
   const raw = await Chat.listMessages(id, limit)
   const messages = raw.map((r: any) => ({ role: r.user_name === 'system' ? 'system' : 'user', content: r.message, timestamp: r.created_at }))
   try {
-    const recs = await AI.recommendResponses(messages, { numSuggestions: num })
+    const recs = await AI.recommendResponses(messages, { numSuggestions: num, language })
     return c.json({ recommendations: recs })
   } catch (err: any) {
     return c.json({ error: 'ai error', detail: String(err) }, 500)
@@ -122,6 +141,10 @@ app.get('/rooms/:id/suggest-reply', async (c) => {
   const id = Number(c.req.param('id'))
   const limit = Number(c.req.query('limit') ?? 200)
   const tone = c.req.query('tone') ?? 'concise and friendly'
+  const token = c.req.header('Authorization')?.replace('Bearer ', '') ?? null
+  if (!token) return c.json({ error: 'unauthenticated' }, 401)
+  const member = await Chat.isMember(id, token)
+  if (!member) return c.json({ error: 'forbidden' }, 403)
   const raw = await Chat.listMessages(id, limit)
   const messages = raw.map((r: any) => ({ role: r.user_name === 'system' ? 'system' : 'user', content: r.message, timestamp: r.created_at }))
   try {

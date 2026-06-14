@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import './App.css'
-import { authFetch, getToken, generateToken, setToken } from './auth'
+import { authFetch, getToken, generateToken, setToken, getDisplayName, setDisplayName } from './auth'
 
 import '@material/web/button/filled-button.js'
 import '@material/web/button/outlined-button.js'
@@ -10,6 +10,34 @@ import '@material/web/list/list.js'
 import '@material/web/list/list-item.js'
 import '@material/web/icon/icon.js'
 import '@material/web/dialog/dialog.js'
+
+import {
+  MessageSquare, Plus, Send, Pencil, Trash2,
+  Link, X, Sparkles, RefreshCw, Languages,
+  Moon, Sun, UserPlus, Inbox, CheckCircle,
+  Hash, Mic, Image as ImageIcon, Code, Bug,
+  Briefcase, Megaphone, BookOpen, Music,
+} from 'lucide-react'
+
+const ROOM_ICON_MAP: Array<[RegExp, typeof Hash]> = [
+  [/design|figma|ui|ux|feedback|design/i, Hash],
+  [/ai|gpt|llm|chat|bot|gemini|claude|model/i, Sparkles],
+  [/project|alpha|beta|dev|sprint|task|work/i, Briefcase],
+  [/general|random|chat|announce|공지/i, Megaphone],
+  [/music|audio|podcast|song/i, Music],
+  [/code|dev|programming|debug|bug/i, Code],
+  [/image|photo|pic|gallery/i, ImageIcon],
+  [/voice|mic|audio/i, Mic],
+  [/book|read|doc|wiki|note/i, BookOpen],
+  [/bug|issue|fix|error/i, Bug],
+]
+
+function getRoomIcon(name: string) {
+  for (const [pattern, icon] of ROOM_ICON_MAP) {
+    if (pattern.test(name)) return icon
+  }
+  return Hash
+}
 
 type Room = {
   id: number
@@ -84,6 +112,7 @@ type PendingRequest = {
 }
 
 const LANG_KEY = 'preferred_language'
+const THEME_KEY = 'preferred_theme'
 const AVAILABLE_LANGS = [
   { code: 'en', label: 'English' },
   { code: 'ko', label: '한국어' },
@@ -124,6 +153,7 @@ export default function App() {
   const [input, setInput] = useState('')
   const [me, setMe] = useState<string | null>(null)
   const [preferredLang, setPreferredLang] = useState<string>(localStorage.getItem(LANG_KEY) || 'en')
+  const [theme, setTheme] = useState<string>(() => localStorage.getItem(THEME_KEY) || 'light')
   const [error, setError] = useState<string | null>(null)
   const [loadingRooms, setLoadingRooms] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
@@ -132,10 +162,9 @@ export default function App() {
   const [socketStatus, setSocketStatus] = useState<'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'>('idle')
   const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([])
 
-  const [showRegister, setShowRegister] = useState<boolean>(() => !getToken())
+  const [showRegister, setShowRegister] = useState<boolean>(() => !getDisplayName())
   const [regName, setRegName] = useState<string>('')
   const [regLang, setRegLang] = useState<string>(preferredLang)
-  const [regToken, setRegToken] = useState<string>('')
 
   const [showCreateRoom, setShowCreateRoom] = useState(false)
   const [showEditRoom, setShowEditRoom] = useState(false)
@@ -193,7 +222,7 @@ export default function App() {
   async function fetchAiSuggestions(roomId: number) {
     setLoadingSuggestions(true)
     try {
-      const resp = await authFetch(`/api/rooms/${roomId}/recommendations?n=3&limit=200`)
+      const resp = await authFetch(`/api/rooms/${roomId}/recommendations?n=3&limit=200&lang=${preferredLang}`)
       const json = await resp.json()
       if (!resp.ok) throw new Error(json?.detail || json?.error || 'failed to load suggestions')
       setAiSuggestions(Array.isArray(json?.recommendations) ? json.recommendations : [])
@@ -286,12 +315,22 @@ export default function App() {
     authFetch('/api/auth/whoami')
       .then((r) => r.json())
       .then((data) => {
-        setMe(data?.user?.display_name ?? data?.user?.token ?? null)
+        const name = data?.user?.display_name ?? data?.user?.token ?? null
+        setMe(name)
+        if (name && name !== data?.user?.token) setDisplayName(name)
       })
-      .catch((err) => setError(toErrorMessage(err)))
+      .catch(() => {
+        const saved = getDisplayName()
+        if (saved) setMe(saved)
+      })
 
     void fetchRooms()
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+
+  useEffect(() => {
+    document.documentElement.className = theme
+  }, [theme])
   /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   useEffect(() => {
@@ -436,9 +475,9 @@ export default function App() {
     }
   }
 
-  async function handleSuggestionClick(text: string) {
-    setInput(text)
-    await send()
+  function handleSuggestionClick(text: string) {
+    const quoted = text.match(/"([^"]+)"/)?.[1]
+    setInput(quoted ?? text)
   }
 
   function changeLang(code: string) {
@@ -446,15 +485,24 @@ export default function App() {
     localStorage.setItem(LANG_KEY, code)
   }
 
+  function toggleTheme() {
+    setTheme((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light'
+      localStorage.setItem(THEME_KEY, next)
+      return next
+    })
+  }
+
   async function handleRegister(e?: FormEvent | Event) {
     if (e && 'preventDefault' in e) e.preventDefault()
-    const tokenToUse = regToken || generateToken()
+    const tokenToUse = generateToken()
+    const nameToUse = regName.trim() || tokenToUse
 
     try {
       const resp = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: tokenToUse, displayName: regName || tokenToUse }),
+        body: JSON.stringify({ token: tokenToUse, displayName: nameToUse }),
       })
       if (!resp.ok) {
         const json = await resp.json()
@@ -462,14 +510,11 @@ export default function App() {
       }
 
       setToken(tokenToUse)
+      setDisplayName(nameToUse)
       localStorage.setItem(LANG_KEY, regLang)
-      setRegToken(tokenToUse)
       setPreferredLang(regLang)
+      setMe(nameToUse)
       setShowRegister(false)
-
-      const whoami = await authFetch('/api/auth/whoami')
-      const whoamiJson = await whoami.json()
-      setMe(whoamiJson?.user?.display_name ?? tokenToUse)
     } catch (err) {
       console.error('register failed', err)
       alert('Registration failed: ' + toErrorMessage(err))
@@ -554,7 +599,7 @@ export default function App() {
     <>
       {showRegister && (
         <md-dialog open>
-          <div slot="headline">Welcome — register your name</div>
+          <div slot="headline"><UserPlus size={20} style={{ verticalAlign: 'middle', marginRight: 8 }} />Welcome — register your name</div>
           <form slot="content" onSubmit={(e) => { e.preventDefault(); void handleRegister(e) }}>
             <div className="modal-field">
               <md-outlined-text-field
@@ -564,31 +609,23 @@ export default function App() {
               />
             </div>
             <div className="modal-field">
-              <md-outlined-text-field
-                label="Language"
-                value={regLang}
-                onInput={(e) => setRegLang((e.target as HTMLSelectElement).value)}
-              />
-            </div>
-            <div className="modal-field">
-              <md-outlined-text-field
-                label="Token (optional)"
-                placeholder="auto-generate if empty"
-                value={regToken}
-                onInput={(e) => setRegToken((e.target as HTMLInputElement).value)}
-              />
+              <label className="modal-select-label">Language</label>
+              <select value={regLang} onChange={(e) => setRegLang((e.target as HTMLSelectElement).value)} className="modal-select">
+                {AVAILABLE_LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+              </select>
             </div>
           </form>
           <div slot="actions">
-            <md-filled-button onClick={() => void handleRegister()}>Register</md-filled-button>
-            <md-outlined-button onClick={() => { const t = generateToken(); setRegToken(t); setRegName(''); setRegLang(preferredLang) }}>Generate Token</md-outlined-button>
+            <button className="btn btn-filled" onClick={() => void handleRegister()}>
+              <UserPlus size={18} />Register
+            </button>
           </div>
         </md-dialog>
       )}
 
       {showCreateRoom && (
         <md-dialog open>
-          <div slot="headline">새 방 만들기</div>
+          <div slot="headline"><Plus size={20} style={{ verticalAlign: 'middle', marginRight: 8 }} />새 방 만들기</div>
           <form slot="content" onSubmit={(e) => { e.preventDefault(); void handleCreateRoom(e) }}>
             <div className="modal-field">
               <md-outlined-text-field
@@ -599,15 +636,19 @@ export default function App() {
             </div>
           </form>
           <div slot="actions">
-            <md-filled-button onClick={() => void handleCreateRoom()}>Create</md-filled-button>
-            <md-outlined-button onClick={() => setShowCreateRoom(false)}>Cancel</md-outlined-button>
+            <button className="btn btn-filled" onClick={() => void handleCreateRoom()}>
+              <Plus size={18} />Create
+            </button>
+            <button className="btn btn-outlined" onClick={() => setShowCreateRoom(false)}>
+              Cancel
+            </button>
           </div>
         </md-dialog>
       )}
 
       {showEditRoom && (
         <md-dialog open>
-          <div slot="headline">방 이름 수정</div>
+          <div slot="headline"><Pencil size={20} style={{ verticalAlign: 'middle', marginRight: 8 }} />방 이름 수정</div>
           <form slot="content" onSubmit={(e) => { e.preventDefault(); void handleRenameRoom(e) }}>
             <div className="modal-field">
               <md-outlined-text-field
@@ -618,15 +659,19 @@ export default function App() {
             </div>
           </form>
           <div slot="actions">
-            <md-filled-button onClick={() => void handleRenameRoom()}>Save</md-filled-button>
-            <md-outlined-button onClick={() => setShowEditRoom(false)}>Cancel</md-outlined-button>
+            <button className="btn btn-filled" onClick={() => void handleRenameRoom()}>
+              <Pencil size={18} />Save
+            </button>
+            <button className="btn btn-outlined" onClick={() => setShowEditRoom(false)}>
+              Cancel
+            </button>
           </div>
         </md-dialog>
       )}
 
       {createdRoom && (
         <md-dialog open>
-          <div slot="headline">방이 생성되었습니다</div>
+          <div slot="headline"><CheckCircle size={20} style={{ verticalAlign: 'middle', marginRight: 8 }} />방이 생성되었습니다</div>
           <div slot="content">
             <div className="modal-field">
               <md-outlined-text-field
@@ -637,69 +682,94 @@ export default function App() {
             </div>
           </div>
           <div slot="actions">
-            <md-filled-button onClick={async () => {
+            <button className="btn btn-filled" onClick={async () => {
               await navigator.clipboard.writeText(buildInviteUrl(createdRoom.invite_hash))
             }}>
-              Copy Link
-            </md-filled-button>
-            <md-outlined-button onClick={() => setCreatedRoom(null)}>Close</md-outlined-button>
+              <Link size={18} />Copy Link
+            </button>
+            <button className="btn btn-outlined" onClick={() => setCreatedRoom(null)}>
+              <X size={18} />Close
+            </button>
           </div>
         </md-dialog>
       )}
 
       <div className="app-container">
         <aside className="sidebar">
-          <div className="sidebar-header">Chats</div>
+          <div className="sidebar-header"><img src="/logo.svg" alt="ChatGend" style={{ height: 28, verticalAlign: 'middle' }} /></div>
           <div className="sidebar-user">Me: {me ?? 'unknown'}</div>
 
-          <div className="sidebar-lang">
-            <label className="sidebar-lang-label">Language:</label>
-            <select value={preferredLang} onChange={(e) => changeLang((e.target as HTMLSelectElement).value)} className="sidebar-lang-select">
-              {AVAILABLE_LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
-            </select>
+          <div className="sidebar-controls">
+            <div className="sidebar-lang">
+              <label className="sidebar-lang-label"><Languages size={14} /> Language:</label>
+              <select value={preferredLang} onChange={(e) => changeLang((e.target as HTMLSelectElement).value)} className="sidebar-lang-select">
+                {AVAILABLE_LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+              </select>
+            </div>
+            <button className="theme-toggle" onClick={toggleTheme}>
+              <span className="theme-toggle-icon">{theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}</span>
+              {theme === 'light' ? 'Dark' : 'Light'}
+            </button>
           </div>
 
           {error && <div className="error-banner">{error}</div>}
 
           <md-list>
             {loadingRooms && <md-list-item><div slot="headline">Loading rooms...</div></md-list-item>}
-            {!loadingRooms && rooms.length === 0 && <md-list-item><div slot="headline">No rooms yet</div></md-list-item>}
-            {rooms.map((room) => (
-              <md-list-item
-                key={room.id}
-                onClick={() => setSelectedRoomId(room.id)}
-                selected={room.id === selectedRoomId}
-              >
-                <div slot="headline">{room.name}</div>
-                <div slot="supporting-text">{room.last_message || `${room.message_count ?? 0} messages`}</div>
-              </md-list-item>
-            ))}
+            {!loadingRooms && rooms.length === 0 && <div className="empty-rooms"><Inbox size={16} />No rooms yet</div>}
+            {rooms.map((room) => {
+              const RoomIcon = getRoomIcon(room.name)
+              return (
+                <md-list-item
+                  key={room.id}
+                  type="text"
+                  onClick={() => setSelectedRoomId(room.id)}
+                  selected={room.id === selectedRoomId}
+                >
+                  <RoomIcon slot="start" size={20} />
+                  <div slot="headline">{room.name.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '')}</div>
+                  <div slot="supporting-text">{room.last_message || `${room.message_count ?? 0} messages`}</div>
+                </md-list-item>
+              )
+            })}
           </md-list>
 
           <div className="sidebar-footer">
-            <md-filled-button onClick={() => setShowCreateRoom(true)}>+ 새 채팅방 추가</md-filled-button>
+            <button className="btn btn-filled btn-full" onClick={() => setShowCreateRoom(true)}>
+              <Plus size={18} />새 채팅방 추가
+            </button>
           </div>
         </aside>
 
         <main className="chat-area">
           <header className="chat-header">
-            {currentRoom?.name ?? 'No chat'}
+            {currentRoom ? (
+              <>
+                {(() => {
+                  const HeaderIcon = getRoomIcon(currentRoom.name)
+                  return <HeaderIcon size={22} />
+                })()}
+                <span>{currentRoom.name.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, '')}</span>
+              </>
+            ) : (
+              <MessageSquare size={22} />
+            )}
             {currentRoom && (
               <span className="chat-header-actions">
                 {selectedRoomId != null && (
                   <>
-                    <md-outlined-button
-                      style={{ marginLeft: 'auto', height: '32px', fontSize: '12px' }}
+                    <button
+                      className="btn btn-outlined"
                       onClick={() => { setEditRoomName(currentRoom.name); setShowEditRoom(true) }}
                     >
-                      Rename
-                    </md-outlined-button>
-                    <md-outlined-button
-                      style={{ marginLeft: '8px', height: '32px', fontSize: '12px' }}
+                      <Pencil size={18} />Rename
+                    </button>
+                    <button
+                      className="btn btn-outlined"
                       onClick={() => void handleDeleteRoom()}
                     >
-                      Delete
-                    </md-outlined-button>
+                      <Trash2 size={18} />Delete
+                    </button>
                   </>
                 )}
               </span>
@@ -728,15 +798,16 @@ export default function App() {
           <section className="ai-panel">
             <div className="ai-panel-header">
               <div>
-                <div className="ai-panel-title">AI 답변 추천</div>
+                <div className="ai-panel-title"><Sparkles size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />AI 답변 추천</div>
                 <div className="ai-panel-subtitle">대화 맥락을 보고 어떻게 답하면 좋을지 제안합니다.</div>
               </div>
-              <md-outlined-button
+              <button
+                className="btn btn-outlined"
                 onClick={() => { if (selectedRoomId != null) void fetchAiSuggestions(selectedRoomId) }}
                 disabled={selectedRoomId == null || loadingSuggestions}
               >
-                {loadingSuggestions ? 'Loading...' : '새로고침'}
-              </md-outlined-button>
+                {loadingSuggestions ? <><RefreshCw size={18} /> Loading...</> : <><RefreshCw size={18} /> 새로고침</>}
+              </button>
             </div>
 
             {loadingSuggestions ? (
@@ -770,9 +841,9 @@ export default function App() {
               onKeyDown={(e) => { if (e.key === 'Enter') void send() }}
               disabled={selectedRoomId == null || sending}
             />
-            <md-filled-button onClick={() => void send()} disabled={selectedRoomId == null || sending}>
-              {sending ? 'Sending...' : 'Send'}
-            </md-filled-button>
+            <button className="btn btn-filled" onClick={() => void send()} disabled={selectedRoomId == null || sending}>
+              {sending ? <><Send size={18} /> Sending...</> : <><Send size={18} /> Send</>}
+            </button>
           </div>
         </main>
       </div>

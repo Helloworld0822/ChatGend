@@ -145,13 +145,24 @@ async function handleSendMessage(ws: WebSocket, command: ClientCommand) {
     return
   }
 
+  if (!state.token) {
+    sendJson(ws, { type: 'error', requestId: command.requestId, message: 'authentication required' })
+    return
+  }
+
+  const member = await Chat.isMember(state.roomId, state.token)
+  if (!member) {
+    sendJson(ws, { type: 'error', requestId: command.requestId, message: 'not a member of this room' })
+    return
+  }
+
   const text = command.text.trim()
   if (!text) {
     sendJson(ws, { type: 'error', requestId: command.requestId, message: 'message required' })
     return
   }
 
-  const user = state.token ? await findUserByToken(state.token) : null
+  const user = await findUserByToken(state.token)
   const userName = user?.display_name ?? state.token ?? 'anonymous'
   const message = await Chat.addMessage(state.roomId, userName, state.token, text)
   const room = await Chat.getRoomSummary(state.roomId)
@@ -183,7 +194,20 @@ async function handleConnection(ws: WebSocket, _req: IncomingMessage, url: URL) 
     return
   }
 
-  const user = token ? await findUserByToken(token) : null
+  if (!token) {
+    sendJson(ws, { type: 'error', message: 'authentication required' })
+    ws.close(1008, 'authentication required')
+    return
+  }
+
+  const member = await Chat.isMember(roomId, token)
+  if (!member) {
+    sendJson(ws, { type: 'error', message: 'not a member of this room' })
+    ws.close(1008, 'not a member')
+    return
+  }
+
+  const user = await findUserByToken(token)
   const userName = user?.display_name ?? token ?? 'anonymous'
 
   clientStates.set(ws, { roomId, token, userName })

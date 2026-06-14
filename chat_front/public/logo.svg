@@ -1,22 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 40" width="220" height="40">
-  <!-- Icon: chat bubble with a sparkle/AI dot -->
   <g>
     <path d="M8 6 h20 a6 6 0 0 1 6 6 v12 a6 6 0 0 1 -6 6 h-12 l-6 6 v-6 h-2 a6 6 0 0 1 -6 -6 v-12 a6 6 0 0 1 6 -6 z"
-          fill="#1565C0" />
-    <!-- 3 small dots inside bubble -->
+          fill="#3b82f6" />
     <circle cx="13" cy="18" r="1.6" fill="#ffffff" />
     <circle cx="18" cy="18" r="1.6" fill="#ffffff" />
     <circle cx="23" cy="18" r="1.6" fill="#ffffff" />
-    <!-- sparkle (AI marker) -->
     <g transform="translate(30 4)">
-      <path d="M0 4 L1 1 L2 4 L5 5 L2 6 L1 9 L0 6 L-3 5 Z" fill="#1565C0" />
+      <path d="M0 4 L1 1 L2 4 L5 5 L2 6 L1 9 L0 6 L-3 5 Z" fill="#3b82f6" />
     </g>
   </g>
-  <!-- Wordmark -->
   <text x="44" y="27"
         font-family="SUIT, Inter, system-ui, -apple-system, Roboto, sans-serif"
         font-size="20"
         font-weight="800"
-        fill="#1565C0"
+        fill="#3b82f6"
         letter-spacing="-0.3">ChatGend</text>
 </svg>

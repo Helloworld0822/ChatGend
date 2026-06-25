@@ -11,6 +11,20 @@ build/
 .env.local
 .env.production
 .env.development
+.env.staging
+.env.test
+.envrc
+
+# secrets / credentials
+*.pem
+*.key
+*.cert
+*credential*
+*secret*
+service-account*.json
+client_secret*.json
+google-credentials*
+firebase-*
 
 # logs
 *.log

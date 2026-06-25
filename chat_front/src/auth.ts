@@ -22,7 +22,7 @@ export function clearDisplayName(): void {
 }
 
 export function generateToken(): string {
-  return 'tok_' + Math.random().toString(36).slice(2, 10)
+  return 'tok_' + crypto.randomUUID().replace(/-/g, '').slice(0, 16)
 }
 
 export async function ensureToken(): Promise<string> {

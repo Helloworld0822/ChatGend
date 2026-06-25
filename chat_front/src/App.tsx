@@ -16,7 +16,7 @@ import {
   Link, X, Sparkles, RefreshCw, Languages,
   Moon, Sun, UserPlus, Inbox, CheckCircle,
   Hash, Mic, Image as ImageIcon, Code, Bug,
-  Briefcase, Megaphone, BookOpen, Music,
+  Briefcase, Megaphone, BookOpen, Music, Menu,
 } from 'lucide-react'
 
 const ROOM_ICON_MAP: Array<[RegExp, typeof Hash]> = [
@@ -167,6 +167,7 @@ export default function App() {
   const [regLang, setRegLang] = useState<string>(preferredLang)
 
   const [showCreateRoom, setShowCreateRoom] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showEditRoom, setShowEditRoom] = useState(false)
   const [roomName, setRoomName] = useState('')
   const [editRoomName, setEditRoomName] = useState('')
@@ -372,11 +373,15 @@ export default function App() {
     setSocketStatus('connecting')
 
     const token = getToken()
-    const query = new URLSearchParams({ roomId: String(selectedRoomId) })
-    if (token) query.set('token', token)
-
-    const socket = new WebSocket(`/api/ws?${query.toString()}`)
+    const socket = new WebSocket(`/api/ws?roomId=${selectedRoomId}`)
     socketRef.current = socket
+
+    socket.onopen = () => {
+      if (socketRef.current !== socket) return
+      if (token) {
+        socket.send(JSON.stringify({ type: 'auth', token }))
+      }
+    }
 
     socket.onmessage = (event) => {
       if (socketRef.current !== socket) return
@@ -694,7 +699,8 @@ export default function App() {
         </md-dialog>
       )}
 
-      <div className="app-container">
+      <div className={`app-container${sidebarOpen ? ' sidebar-open' : ''}`}>
+        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
         <aside className="sidebar">
           <div className="sidebar-header"><img src="/logo.svg" alt="ChatGend" style={{ height: 28, verticalAlign: 'middle' }} /></div>
           <div className="sidebar-user">Me: {me ?? 'unknown'}</div>
@@ -743,6 +749,9 @@ export default function App() {
 
         <main className="chat-area">
           <header className="chat-header">
+            <button className="hamburger" onClick={() => setSidebarOpen(p => !p)} aria-label="Toggle sidebar">
+              <Menu size={22} />
+            </button>
             {currentRoom ? (
               <>
                 {(() => {

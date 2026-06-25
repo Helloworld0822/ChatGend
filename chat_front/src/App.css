@@ -828,10 +828,59 @@ md-dialog [slot="actions"] {
 }
 
 /* ═══════════════════════════════════════════════════
-   Responsive
+   Responsive — Mobile drawer
    ═══════════════════════════════════════════════════ */
+
+.sidebar-backdrop {
+  display: none;
+}
+
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--foreground);
+  cursor: pointer;
+  padding: var(--space-1);
+  margin-right: var(--space-2);
+}
+
 @media (max-width: 720px) {
-  .sidebar { display: none; }
+  .hamburger { display: flex; align-items: center; }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(320px, 80vw);
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+    border-right: 1px solid var(--border);
+  }
+
+  .sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: rgba(0,0,0,0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .sidebar-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .chat-header { padding: var(--space-4) var(--space-4); font-size: 16px; }
   .messages { padding: var(--space-4); }
   .ai-panel { margin: 0 var(--space-3) var(--space-2); padding: var(--space-3); }

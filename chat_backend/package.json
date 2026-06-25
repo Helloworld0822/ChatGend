@@ -8,17 +8,17 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.14",
+    "dotenv": "^17.4.2",
     "hono": "^4.12.16",
     "openai": "^6.38.0",
     "pg": "^8.10.0",
-    "postgresql": "^0.0.1",
-    "sqlite": "^5.1.1",
-    "ws": "^8.21.0"
+    "ws": "^8.21.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",
+    "@types/pg": "^8.20.0",
     "@types/ws": "^8.18.1",
-    "dotenv": "^17.4.2",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3"
   }

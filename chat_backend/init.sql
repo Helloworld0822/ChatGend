@@ -36,8 +36,3 @@ CREATE TABLE IF NOT EXISTS room_members (
 
 CREATE INDEX IF NOT EXISTS room_members_user_idx ON room_members(user_token);
 
-CREATE TABLE IF NOT EXISTS user (
-    name TEXT NOT NULL,
-    token TEXT PRIMARY KEY,
-    language TEXT NOT NULL
-);

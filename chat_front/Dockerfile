@@ -1,14 +1,21 @@
+FROM node:20-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
 FROM node:20-alpine
 WORKDIR /app
 
-# Install dependencies
-COPY package.json package-lock.json ./
-RUN npm ci --silent
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
+    npm i -g serve@14
 
-# Copy source
-COPY . .
+COPY --from=build /app/dist ./dist
 
-EXPOSE 5173
+USER appuser
+EXPOSE 5000
 
-# Start Vite dev server and listen on all interfaces so nginx can proxy to it
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD ["serve", "-s", "dist", "-l", "5000"]

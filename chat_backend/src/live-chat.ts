@@ -6,6 +6,10 @@ import * as Chat from './chat.js'
 
 type ClientCommand =
   | {
+      type: 'auth'
+      token: string
+    }
+  | {
       type: 'send-message'
       requestId: string
       text: string
@@ -106,6 +110,10 @@ function removeSocket(ws: WebSocket) {
 function parseClientCommand(raw: string): ClientCommand | null {
   try {
     const data = JSON.parse(raw) as Partial<ClientCommand>
+    if (data?.type === 'auth') {
+      if (typeof data.token !== 'string') return null
+      return { type: 'auth', token: data.token }
+    }
     if (data?.type !== 'send-message') return null
     if (typeof data.requestId !== 'string' || typeof data.text !== 'string') return null
     return { type: 'send-message', requestId: data.requestId, text: data.text }
@@ -139,6 +147,7 @@ async function sendSnapshot(ws: WebSocket, roomId: number) {
 }
 
 async function handleSendMessage(ws: WebSocket, command: ClientCommand) {
+  if (command.type !== 'send-message') return
   const state = clientStates.get(ws)
   if (!state) {
     sendJson(ws, { type: 'error', requestId: command.requestId, message: 'socket is not attached to a room' })
@@ -186,7 +195,6 @@ async function handleSendMessage(ws: WebSocket, command: ClientCommand) {
 
 async function handleConnection(ws: WebSocket, _req: IncomingMessage, url: URL) {
   const roomId = Number(url.searchParams.get('roomId'))
-  const token = url.searchParams.get('token')?.trim() || null
 
   if (!Number.isFinite(roomId) || roomId <= 0) {
     sendJson(ws, { type: 'error', message: 'roomId is required' })
@@ -194,23 +202,7 @@ async function handleConnection(ws: WebSocket, _req: IncomingMessage, url: URL) 
     return
   }
 
-  if (!token) {
-    sendJson(ws, { type: 'error', message: 'authentication required' })
-    ws.close(1008, 'authentication required')
-    return
-  }
-
-  const member = await Chat.isMember(roomId, token)
-  if (!member) {
-    sendJson(ws, { type: 'error', message: 'not a member of this room' })
-    ws.close(1008, 'not a member')
-    return
-  }
-
-  const user = await findUserByToken(token)
-  const userName = user?.display_name ?? token ?? 'anonymous'
-
-  clientStates.set(ws, { roomId, token, userName })
+  clientStates.set(ws, { roomId, token: null, userName: 'unknown' })
   addSocketToRoom(roomId, ws)
 
   ws.on('close', () => {
@@ -226,10 +218,51 @@ async function handleConnection(ws: WebSocket, _req: IncomingMessage, url: URL) 
     }
   })
 
-  ws.on('message', (data: RawData) => {
-    const command = parseClientCommand(rawDataToString(data))
+  ws.on('message', async (data: RawData) => {
+    const state = clientStates.get(ws)
+    if (!state) return
+
+    const raw = rawDataToString(data)
+    const command = parseClientCommand(raw)
     if (!command) {
       sendJson(ws, { type: 'error', message: 'unsupported websocket message' })
+      return
+    }
+
+    if (command.type === 'auth') {
+      const member = await Chat.isMember(roomId, command.token)
+      if (!member) {
+        sendJson(ws, { type: 'error', message: 'authentication failed' })
+        return
+      }
+      const user = await findUserByToken(command.token)
+      const userName = user?.display_name ?? command.token ?? 'anonymous'
+
+      clientStates.set(ws, { roomId, token: command.token, userName })
+
+      try {
+        const ok = await sendSnapshot(ws, roomId)
+        if (!ok) {
+          removeSocket(ws)
+          return
+        }
+        broadcast(roomId, {
+          type: 'system',
+          kind: 'join',
+          userName,
+          at: new Date().toISOString(),
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        sendJson(ws, { type: 'error', message })
+        ws.close(1011, 'snapshot failed')
+        removeSocket(ws)
+      }
+      return
+    }
+
+    if (!state.token) {
+      sendJson(ws, { type: 'error', requestId: command.type === 'send-message' ? command.requestId : undefined, message: 'authenticate first' })
       return
     }
 
@@ -238,25 +271,6 @@ async function handleConnection(ws: WebSocket, _req: IncomingMessage, url: URL) 
       sendJson(ws, { type: 'error', requestId: command.requestId, message })
     })
   })
-
-  try {
-    const ok = await sendSnapshot(ws, roomId)
-    if (!ok) {
-      removeSocket(ws)
-      return
-    }
-    broadcast(roomId, {
-      type: 'system',
-      kind: 'join',
-      userName,
-      at: new Date().toISOString(),
-    })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    sendJson(ws, { type: 'error', message })
-    ws.close(1011, 'snapshot failed')
-    removeSocket(ws)
-  }
 }
 
 export function attachChatWebSocket(server: UpgradeServer) {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import './App.css'
-import { authFetch, getToken, generateToken, setToken, getDisplayName, setDisplayName } from './auth'
+import { authFetch, getToken, generateToken, setToken, getDisplayName, setDisplayName, wsUrl, apiUrl } from './auth'
 
 import '@material/web/button/filled-button.js'
 import '@material/web/button/outlined-button.js'
@@ -373,7 +373,7 @@ export default function App() {
     setSocketStatus('connecting')
 
     const token = getToken()
-    const socket = new WebSocket(`/api/ws?roomId=${selectedRoomId}`)
+    const socket = new WebSocket(wsUrl(`/api/ws?roomId=${selectedRoomId}`))
     socketRef.current = socket
 
     socket.onopen = () => {
@@ -434,7 +434,7 @@ export default function App() {
     async function doTranslate() {
       const texts = messages.map((m) => m.message)
       try {
-        const resp = await fetch('/api/translate', {
+        const resp = await fetch(apiUrl('/api/translate'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ texts, target: preferredLang }),
@@ -504,7 +504,7 @@ export default function App() {
     const nameToUse = regName.trim() || tokenToUse
 
     try {
-      const resp = await fetch('/api/auth/register', {
+      const resp = await fetch(apiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: tokenToUse, displayName: nameToUse }),

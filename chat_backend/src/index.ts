@@ -284,9 +284,9 @@ validateEnv()
 
 const server = serve({
   fetch: app.fetch,
-  port: 3000
+  port: Number(process.env.PORT) || 3000
 }, (info) => {
-  console.log(`Server is running on http://localhost:${info.port}`)
+  console.log(`Server is running on http://0.0.0.0:${info.port}`)
   console.log(`[backend] Google Translate API key loaded: ${Boolean(process.env.GOOGLE_TRANSLATE_API_KEY || process.env.GOOGLE_APPLICATION_CREDENTIALS)}`)
 })
 

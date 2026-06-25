@@ -1,6 +1,17 @@
 const TOKEN_KEY = 'persistent_user_token'
 const NAME_KEY = 'persistent_user_name'
 
+const API_BASE = import.meta.env.VITE_API_URL ?? ''
+const WS_BASE = import.meta.env.VITE_WS_URL ?? API_BASE.replace(/^http/, 'ws')
+
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path}`
+}
+
+export function wsUrl(path: string): string {
+  return `${WS_BASE}${path}`
+}
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
 }
@@ -34,7 +45,7 @@ export async function ensureToken(): Promise<string> {
   }
   
   try {
-    await fetch('/api/auth/register', {
+    await fetch(apiUrl('/api/auth/register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token })
@@ -50,5 +61,7 @@ export function authFetch(input: RequestInfo, init?: RequestInit) {
   const token = getToken()
   const headers = new Headers(init?.headers || {})
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  return fetch(input, { ...init, headers })
+
+  const url = typeof input === 'string' ? apiUrl(input) : input
+  return fetch(url, { ...init, headers })
 }
